@@ -15,6 +15,8 @@
 3. `plan_between` 优先尝试关节空间直线；检查失败或插值段数超过上限时，调用 `plan_group`，向 `/plan_kinematic_path` 发关节目标。`pipeline_id` 是 `ompl`，`planner_id` 是 `--planner` 选的名字，例如 `RRTConnect`。
 4. 走 OMPL 管线时，[OMPL 配置](../gento_skye_moveit_config/config/ompl_planning.yaml) 里的 `AddTimeOptimalParameterization` 做时间参数化，请求里的速度、加速度缩放都是 0.25。直线分支的时间则由脚本自己分配，不经过这个适配器。
 
+第 1 步结束时还没有 OMPL。初始求解器 [kdl_arm_ik.py](../kdl_arm_ik.py) 把选臂放在这一步里：左右臂各解 7 个关节，留下更适用的那一只，详见后文「左右臂都在 KDL 里解完，OMPL 还没开始」。场景脚本的 `main()` 仍走自己的 `/compute_ik`，不会读取它的打印。
+
 RViz 的普通 Plan 流程也要区分交互和规划：在 Humble 中，拖动末端标记时，交互组件先通过 IK 更新目标 `RobotState`；点击 Plan 后，界面调用 `setJointValueTarget()`，提交的是关节目标。不是必然在同一次 `plan()` 里先调用 `/compute_ik` 再规划；Cartesian Path 模式是另一条流程。
 
 如果应用直接提交位置／姿态目标约束，MoveIt 的 OMPL 接口可使用 `IKConstraintSampler`，在规划期间调用 IK，采样多个目标关节状态。OMPL 核心算法不依赖 KDL，但不能因此说整个 MoveIt–OMPL 规划过程不会调用 IK。
@@ -57,6 +59,67 @@ SVD 默认阈值参数是 0.001，但该实现调用 Eigen 的 `setThreshold()`�
 脚本把 `avoid_collisions` 设为 `False`，将碰撞筛选移到外层。若设为 `True`，MoveIt 可通过解有效性回调拒绝碰撞候选，KDL 再继续搜索，而不是每一步数值迭代都检查碰撞。短超时内若只找到碰撞解，启用检查就可能找不到可接受解；这并非必然。实际顺序是：`solve_ik` 用 `elbow_in_front` 和 `/compute_fk` 筛选肘的位置，再按关节距离排序、截取候选；外层单臂或双臂配对流程才调用 `goal_is_valid`，通过 `/check_state_validity` 检查组合后的构型。IK 返回成功本身不代表无碰撞。
 
 <img src="figures/kdl-seeds.svg" alt="同一个夹爪位姿：肘在身前的解留下，肘在身后的丢掉，连杆进桌面的丢掉" style="max-width:100%; height:auto;">
+
+## 左右臂都在 KDL 里解完，OMPL 还没开始
+
+选哪只手属于这一节的逆解，不属于后面的 OMPL。仓库根目录的 [kdl_arm_ik.py](../kdl_arm_ik.py) 不调用 `/plan_kinematic_path`，不跑 `RRTConnect`，也不读桌子和球。它不替换上面 MoveIt 插件里的随机重启。场景脚本的 `main()` 仍自己调用 `/compute_ik`，还不会读取这里打印的关节角。
+
+不写 `--arm` 时，同一个 `base_link` 位姿送进两条链，腰的三个关节锁住，每只手只解自己的 7 个转动关节：
+
+- 右臂：`waist_Link_3` → `TCP_Link_R`
+- 左臂：`waist_Link_3` → `TCP_Link_L`
+
+每条链先用 `ChainIkSolverPos_LMA`，6 个任务权重都是 1，位置和朝向一样重要。这组角留在 URDF 限位里并且手已经对上，就用它。角越出限位时，同一组种子再用 `ChainIkSolverPos_NR_JL` 和 `ChainIkSolverVel_wdls` 解一次，每一步都把关节夹在限位里。阻尼为什么要会松会紧、限位为什么要在拧之前就生效，见 [ik_solving.md](../docs/ik_solving.md)。种子是该侧参考角（`--seed`，不写就是 7 个 0；两侧当前角不同时用 `--seed-right` 和 `--seed-left`）、屈肘、几组 `Joint3` 滚转，以及两组把手伸到身前的起始角。回零时两只手在身体两侧，单靠全 0 不容易够到桌面。conda 里的 Python 没有 PyKDL，用 `/usr/bin/python3`。
+
+两侧都求出候选之后，按这个顺序留一只手：
+
+1. 正运动学对得上的解才进入比较。位置残差要小于 0.1 mm，姿态残差要小于 0.0001 rad。对不上的一侧只留下残差。
+2. 肘在身前的解优先于肘在身后的解。规则与 `elbow_in_front()` 相同。
+3. 剩下的解里，取离该侧种子关节距离更小的一只。
+4. 两侧距离差不超过 0.25 rad，而且目标的 y 离开中线超过 0.05 m 时，留目标那一侧：y < 0 用右臂，y > 0 用左臂。
+
+```bash
+/usr/bin/python3 kdl_arm_ik.py \
+  --xyz 0.70 -0.18 0.52 \
+  --quat 0.31100 0.65408 0.40126 0.56075
+```
+
+这条命令腰锁在 0，两侧种子都是全 0。右臂对上了，左臂还差 `3.421e-01` m 和 `5.500e-01` rad，所以留下右臂，`reason=only_converged`。右臂关节角是 `Joint1_R=-0.390595`，`Joint2_R=-0.994181`，`Joint3_R=-0.286879`，`Joint4_R=-1.266021`，`Joint5_R=-0.398655`，`Joint6_R=0.735633`，`Joint7_R=-0.274304`。正运动学回到 `(0.700000, -0.180000, 0.520000)`。数值和退出码见 [grasp_planner_recommendation.md](../docs/grasp_planner_recommendation.md)。
+
+到这里为止，结果只是选中手臂的 7 个关节角。「OMPL 里面的循环」才把它们写成 `JointConstraint`，交给关节直线或 OMPL。`converged=0` 时没有关节目标，规划不会开始。
+
+## KDL 自带求解器，以及库外的选择
+
+按这只手臂的四条取舍排过的对照表见 [ik_solver_comparison.md](../docs/ik_solver_comparison.md)。本机 `python3-pykdl` 与 `liborocos-kdl` 都是 1.5.1。`kdl_arm_ik.py` 的内层已经调用 `ChainIkSolverPos_LMA`，6 个权重都是 1；角越出限位时再调用 `ChainIkSolverPos_NR_JL` 和 `ChainIkSolverVel_wdls`。`kinematics.yaml` 里的 `KDLKinematicsPlugin` 走的仍是前面的 `CartToJnt()`，不调用这些类。场景脚本的 `main()` 也还没有换成它们。旧版手写阻尼步和现在这组结果的对照见 [ik_solving.md](../docs/ik_solving.md)。
+
+| 求解器 | 这一步在做什么 | 关节限位 | 对这只 7 轴手臂 |
+|---|---|---|---|
+| `ChainIkSolverPos_NR` + `ChainIkSolverVel_pinv` | 牛顿迭代，速度层是无阻尼伪逆。默认最多 100 次，`eps` 默认 `1e-6` | 无 | 奇异附近关节增量会被放大 |
+| `ChainIkSolverVel_pinv_givens` | 另一份无阻尼伪逆，只接收链 | 交给外面的 `NR` 或 `NR_JL` | 与 `pinv` 同一类 |
+| `ChainIkSolverPos_NR_JL` + `ChainIkSolverVel_wdls` | 牛顿迭代外包关节限位。速度层是加权阻尼最小二乘：`J# = Mq · Vb · pinv_dls(Db) · Ubᵀ · Mx`。关节权重、任务权重和阻尼 `lambda` 分开设置 | 有。构造函数接收 `q_min`、`q_max` | 库里同时带阻尼和限位的组合。阻尼是固定的 `lambda`，不会随误差自动加大。没有朝种子的零空间，也没有肘和选臂 |
+| `ChainIkSolverPos_NR_JL` + `ChainIkSolverVel_pinv_nso` | 零空间最小化 `0.5 · Σ weight · (q_desired − q)²`，也就是 Liégeois 1977 的冗余分解。默认零空间增益 `alpha = 0.25` | 有，限位在 `NR_JL` 里 | 旧的手写循环在位姿靠近之后拉向种子，和这项是同一类二次任务。现在的脚本不再拉。这条伪逆没有阻尼 |
+| `ChainIkSolverPos_LMA` | Levenberg-Marquardt。阻尼随误差自动调整，任务权重把位移和旋转分开。默认最多 500 次 | 构造函数只接收链、任务权重、`eps` 和迭代上限 | 头文件把自适应阻尼写成更稳的阻尼步。默认权重会压低旋转，见下一段 |
+
+`ChainIkSolverPos_LMA` 的默认任务权重是 `L = diag(1, 1, 1, 0.01, 0.01, 0.01)`，前三个是位移，后三个是旋转。代价是 `E = Δxᵀ L Lᵀ Δx`，所以旋转项的系数是 `0.01² = 10⁻⁴`，位移项是 1。桌面抓取要锁住姿态时，这 6 个数要设成同一数量级，例如全为 1。它的 `eps` 作用在加权后的标量 `E` 上，默认 `1e-5`。这和脚本里分开判断的 0.1 mm、0.0001 rad 不是同一个停止条件。LMA 给出的关节角还要在外层对照 URDF 限位，越限的解丢掉。
+
+所以库内这两步已经接进 `kdl_arm_ik.py`，没有接进 `main()`：
+
+- 位姿收敛用 `ChainIkSolverPos_LMA`，6 维任务权重都是 1。
+- 角越出限位，或手还没对上，再用 `ChainIkSolverPos_NR_JL` 配 `ChainIkSolverVel_wdls`。
+- `NR_JL` 配 `pinv_nso` 能把关节拉向一组期望角，但这条伪逆没有阻尼，脚本没有用它。
+
+左右臂比较、肘在身前、屈肘和 `Joint3` 那组种子，这些类都不做。一次 `CartToJnt()` 仍然只给一个局部解。脚本外层的四条筛选还要留着。
+
+本机已安装的包里没有 TRAC-IK、IKFast、bio_ik、pick_ik 和 Pinocchio。它们和 KDL 的局部迭代不是同一件事。本仓库的 `kinematics.yaml` 也只有 `kdl_kinematics_plugin/KDLKinematicsPlugin`。
+
+| 库 | 它额外做的事 | 接到这次抓取时仍留在库外的事 |
+|---|---|---|
+| TRAC-IK | 同一时限里并行跑 KDL 和 NLopt 的序列二次规划，关节限位写在求解里。MoveIt 插件是 `trac_ik_kinematics_plugin/TRAC_IKKinematicsPlugin`，用来替换 `kinematics.yaml` 里的 KDL 插件 | 肘在身前、左右臂取舍。碰撞仍是 MoveIt 的有效性回调，或者后面的关节直线和 OMPL |
+| IKFast | 按这一版 URDF 生成解析逆解。7 轴要指定一个自由关节，再沿这个关节离散取样 | 自由关节的取样决定肘的位置。生成物只属于这一版模型。碰撞和选臂仍在外面 |
+| bio_ik、pick_ik | 把位姿误差、关节居中和肘的位置写成同一组目标。肘可以进代价，而不只是解完再筛。插件分别是 `bio_ik/BioIKKinematicsPlugin`、`pick_ik/PickIkPlugin` | 结果依赖权重和重启。当前 `main()` 没有接这两个插件 |
+| Pinocchio 与 pink | 同一次二次规划里写关节限位、速度限位和碰撞不等式 | 碰撞就从「KDL 之后交给 OMPL」变成求解器自己的约束。依赖也不是现在这条 PyKDL 脚本 |
+
+这次抓取仍用 `kdl_arm_ik.py` 的外层：两臂都解，肘在身前，短行程，目标在身体一侧时留那一侧。内层已经是 LMA，权重为 6 个 1；越限时用 `NR_JL` 加 `wdls`。TRAC-IK 是在相同时限里再用二次规划搜一次，IKFast 是按这一版模型给出解析解，两者都不做肘和选臂。bio_ik 和 pick_ik 才把肘写进代价。这些库都还没有装进当前环境，也没有接到 `main()`。本文没有用它们求解过 Gento Skye。
 
 ## OMPL 里面的循环
 
@@ -103,3 +166,5 @@ IK 搜索时间、路径搜索时间和轨迹执行时长是三个不同概念�
 - [MoveIt Humble：RViz 规划入口](https://github.com/moveit/moveit2/blob/humble/moveit_ros/visualization/motion_planning_rviz_plugin/src/motion_planning_frame_planning.cpp)与[目标约束采样](https://github.com/moveit/moveit2/blob/humble/moveit_planners/ompl/ompl_interface/src/detail/constrained_goal_sampler.cpp)：关节目标与位姿目标的不同路径。
 - [MoveIt Humble：OMPL 规划上下文](https://github.com/moveit/moveit2/blob/humble/moveit_planners/ompl/ompl_interface/src/model_based_planning_context.cpp)：多次求解、时间预算和路径后处理。
 - [MoveIt Humble：TOTG](https://github.com/moveit/moveit2/blob/humble/moveit_core/trajectory_processing/src/time_optimal_trajectory_generation.cpp)与[规划管线](https://github.com/moveit/moveit2/blob/humble/moveit_ros/planning/planning_pipeline/src/planning_pipeline.cpp)：时间参数化与输出路径检查。Humble 分支链接会随维护更新。
+- 本机 `/usr/include/kdl/` 下的 `chainiksolverpos_lma.hpp`、`chainiksolverpos_nr.hpp`、`chainiksolverpos_nr_jl.hpp`、`chainiksolvervel_wdls.hpp`、`chainiksolvervel_pinv_nso.hpp`，对应 `liborocos-kdl` 1.5.1。LMA 的默认任务权重、`NR_JL` 的限位参数和 `pinv_nso` 的二次目标都以此为准。
+- [TRAC-IK](https://github.com/traclabs/trac_ik)、[OpenRAVE IKFast](https://github.com/rdiankov/openrave)、[bio_ik](https://github.com/TAMS-Group/bio_ik)、[pick_ik](https://github.com/PickNikRobotics/pick_ik)、[pink](https://github.com/stephane-caron/pink)：库外选项的来源。本机未安装，本文没有用它们求解 Gento Skye。

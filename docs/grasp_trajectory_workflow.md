@@ -6,7 +6,13 @@
 
 ## 1. 先求关节角，再交给 OMPL
 
-笛卡尔位姿只进 KDL。KDL 把它解成关节角之后，OMPL 只在关节空间里找一条不碰撞的路。两次调用之间，位姿已经不在规划请求里。OMPL 不读位姿，也不调用 KDL。逆解失败，这一段规划不会开始。求解器内部的循环见 [kdl_ompl.md](../tutorials/kdl_ompl.md)。
+笛卡尔位姿只进 KDL。左右臂都在这一步解完，并留下更适用的那一只；OMPL 还没开始。KDL 把它解成关节角之后，OMPL 只在关节空间里找一条不碰撞的路。两次调用之间，位姿已经不在规划请求里。OMPL 不读位姿，也不调用 KDL。逆解失败，这一段规划不会开始。求解器内部的循环，以及两侧怎么留一只手，见 [kdl_ompl.md](../tutorials/kdl_ompl.md)。
+
+这一步的初始求解器是仓库根目录的 [kdl_arm_ik.py](../kdl_arm_ik.py)。不写 `--arm` 时，同一个 `base_link` 位姿送进右臂链和左臂链，腰锁住，每只手只解自己的 7 个转动关节。它不调用 `/plan_kinematic_path`，不跑 `RRTConnect`，也不读桌子和球。留下一只手的顺序是：正运动学对得上；肘在身前优先；离该侧种子的关节距离更短；两侧距离差不超过 0.25 rad 且目标 y 离开中线超过 0.05 m 时，留目标那一侧。命令和桌面例子见 [grasp_planner_recommendation.md](grasp_planner_recommendation.md)。`converged=0` 时没有关节目标，后面的直线和 OMPL 都不会开始。
+
+这个脚本的内层先用 `ChainIkSolverPos_LMA`，6 个权重都是 1。关节角越出限位时，再用 `ChainIkSolverPos_NR_JL` 配 `ChainIkSolverVel_wdls` 重解，每一步都夹在限位里。一次调用仍只给一个局部解，左右臂和肘在外层选。原因见 [ik_solving.md](ik_solving.md)。TRAC-IK、IKFast、bio_ik、pick_ik、Pinocchio 没有装在当前环境里，`main()` 也还没有换成它们。对照见 [ik_solver_comparison.md](ik_solver_comparison.md)。
+
+当前 `main()` 还不会读取这个求解器的打印。它自己仍通过 `/compute_ik` 和 `choose_arm()` 选手臂。两条路径都停在关节角，OMPL 从下面的第 4 步才开始。
 
 当前 `main()` 里，预抓取、抓取、撤退各走一遍：
 
@@ -22,7 +28,8 @@
 ```mermaid
 flowchart TD
   home["1 回零：14 个手臂关节为 0，夹爪为 0"]
-  ik["2 预抓取、抓取、撤退各求一次逆解"]
+  kdl["KDL：左右臂各解 7 轴，留下更适用的一只。此时没有 OMPL"]
+  ik["2 当前 main 仍用 /compute_ik 求预抓取、抓取、撤退"]
   keep["留下肘在身前、构型不撞、离 home 更近的那条手臂"]
   stop["预抓取或抓取无解：退出"]
   plan["3 三段手臂都规划成功，才开始拼接"]
@@ -32,13 +39,17 @@ flowchart TD
   show["5 发到 RViz 回放"]
   cube["carry_after 之后，把方块移到两个 TCP 的中点"]
 
-  home --> ik --> keep --> plan
+  home --> kdl
+  kdl -->|无解| stop
+  kdl --> ik --> keep --> plan
   ik -->|无解| stop
   plan --> line
   line -->|整段无碰| join
   line -->|有碰撞| ompl --> join
   join --> show --> cube
 ```
+
+图里的 KDL 框是 `kdl_arm_ik.py`。它在当前 `main()` 之外，先于 `/compute_ik` 和 OMPL。`main()` 自己的选臂仍是后面的 `choose_arm()`。
 
 三段手臂都走「直线，挡住才 OMPL」这个分支。夹爪张开和闭合不进这个分支。撤退逆解失败，或 `lift` 规划失败时，脚本先从场景里删掉方块再规划一次。逆解本身失败时，撤退目标写成抓取关节角，不再重新求逆解。
 
