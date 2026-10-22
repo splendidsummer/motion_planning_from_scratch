@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="540" viewBox="0 0 720 540" role="img" aria-label="抽样并走出一步">
+  <rect width="720" height="540" fill="#fcfcfc"/>
+  <text x="8" y="24" text-anchor="start" fill="#1c1c1c" font-size="18" font-weight="500" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">抽样，再走出一步</text>
+  <text x="8" y="46" text-anchor="start" fill="#5c5c5c" font-size="14" font-weight="400" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">抽 q_rand。最近的是上面的点。朝它走出一段 η，空心点是这一步的终点，还没有进树。</text>
+  <rect x="16" y="64" width="688" height="460" rx="8" fill="#fcfcfc" stroke="#1c1c1c" stroke-width="2"/>
+  <line x1="80" y1="360" x2="240" y2="360" stroke="#ec77bf" fill="none" stroke-width="2"/>
+  <line x1="240" y1="360" x2="360" y2="230" stroke="#ec77bf" fill="none" stroke-width="2"/>
+  <line x1="360" y1="230" x2="500" y2="390" stroke="#b4b4b8" fill="none" stroke-dasharray="5 4" stroke-width="1.5"/>
+  <line x1="360" y1="230" x2="420" y2="300" stroke="#ec77bf" fill="none" stroke-width="3"/>
+  <circle cx="80" cy="360" r="6" fill="#fde7f4" stroke="#ec77bf" stroke-width="2"/>
+  <circle cx="240" cy="360" r="6" fill="#fde7f4" stroke="#ec77bf" stroke-width="2"/>
+  <circle cx="360" cy="230" r="12" fill="none" stroke="#ec77bf" stroke-width="2"/>
+  <circle cx="360" cy="230" r="6" fill="#fde7f4" stroke="#ec77bf" stroke-width="2"/>
+  <circle cx="420" cy="300" r="6" fill="#fcfcfc" stroke="#1c1c1c" stroke-width="2"/>
+  <rect x="494" y="384" width="12" height="12" fill="#fcfcfc" stroke="#1c1c1c" stroke-width="2"/>
+  <text x="80" y="384" text-anchor="middle" fill="#1c1c1c" font-size="14" font-weight="400" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">起点</text>
+  <text x="240" y="384" text-anchor="middle" fill="#1c1c1c" font-size="14" font-weight="400" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">Cost 160</text>
+  <text x="346" y="234" text-anchor="end" fill="#1c1c1c" font-size="14" font-weight="400" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">Cost 337</text>
+  <text x="376" y="218" text-anchor="start" fill="#1c1c1c" font-size="14" font-weight="400" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">最近</text>
+  <text x="390" y="250" text-anchor="middle" fill="#1c1c1c" font-size="14" font-weight="400" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">η</text>
+  <text x="434" y="318" text-anchor="start" fill="#1c1c1c" font-size="14" font-weight="400" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">q_new</text>
+  <text x="500" y="412" text-anchor="middle" fill="#1c1c1c" font-size="14" font-weight="400" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">q_rand</text>
+</svg>

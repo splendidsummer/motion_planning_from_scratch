@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+
+# Separate repository: https://github.com/splendidsummer/apex
+# Local colcon install, build, and log stay on this machine.
+apex/

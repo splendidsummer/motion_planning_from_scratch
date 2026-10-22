@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520" role="img" aria-label="位姿进 KDL，关节角进 OMPL">
+  <rect width="720" height="520" fill="#fcfcfc"/>
+  <text x="8" y="24" fill="#1c1c1c" font-size="18" font-weight="500" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">位姿进 KDL，关节角进 OMPL</text>
+  <text x="8" y="46" fill="#5c5c5c" font-size="14" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">桌面脚本的 OMPL 分支：IK 后筛选关节目标，再调用规划服务。</text>
+
+  <rect x="16" y="64" width="300" height="420" rx="8" fill="#fff5fb" stroke="#ec77bf" stroke-width="2"/>
+  <text x="32" y="92" fill="#1c1c1c" font-size="16" font-weight="500" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">客户端：IK 与候选筛选</text>
+  <text x="32" y="112" fill="#5c5c5c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">/compute_ik → KDLKinematicsPlugin</text>
+
+  <rect x="36" y="128" width="260" height="64" rx="6" fill="#fde7f4" stroke="#ec77bf" stroke-width="2"/>
+  <text x="166" y="154" text-anchor="middle" fill="#1c1c1c" font-size="15" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">夹爪位姿</text>
+  <text x="166" y="176" text-anchor="middle" fill="#5c5c5c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">base_link 下的位置和姿态</text>
+
+  <line x1="166" y1="192" x2="166" y2="214" stroke="#1c1c1c" stroke-width="2"/>
+  <polygon points="160,214 172,214 166,222" fill="#1c1c1c"/>
+
+  <rect x="36" y="226" width="260" height="68" rx="6" fill="#ffffff" stroke="#ec77bf" stroke-width="2"/>
+  <text x="166" y="252" text-anchor="middle" fill="#1c1c1c" font-size="15" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">KDL 数值迭代</text>
+  <text x="166" y="274" text-anchor="middle" fill="#5c5c5c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">超时内换种子，再解一次</text>
+
+  <line x1="166" y1="294" x2="166" y2="316" stroke="#1c1c1c" stroke-width="2"/>
+  <polygon points="160,316 172,316 166,324" fill="#1c1c1c"/>
+
+  <rect x="36" y="328" width="260" height="52" rx="6" fill="#ffffff" stroke="#1c1c1c" stroke-width="2"/>
+  <text x="166" y="359" text-anchor="middle" fill="#1c1c1c" font-size="15" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">7 个关节角</text>
+
+  <line x1="166" y1="380" x2="166" y2="400" stroke="#1c1c1c" stroke-width="2"/>
+  <polygon points="160,400 172,400 166,408" fill="#1c1c1c"/>
+
+  <rect x="36" y="412" width="260" height="52" rx="6" fill="#fcfcfc" stroke="#1c1c1c" stroke-width="2"/>
+  <text x="166" y="434" text-anchor="middle" fill="#1c1c1c" font-size="14" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">脚本筛肘、排序，外层查碰撞</text>
+  <text x="166" y="452" text-anchor="middle" fill="#5c5c5c" font-size="12" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">/compute_fk、/check_state_validity</text>
+
+  <path d="M296 438 H360 V160 H400" fill="none" stroke="#1c1c1c" stroke-width="2"/>
+  <polygon points="400,154 400,166 410,160" fill="#1c1c1c"/>
+  <text x="348" y="300" fill="#1c1c1c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif" transform="rotate(-90 348 300)">只交关节角</text>
+
+  <rect x="420" y="64" width="284" height="420" rx="8" fill="#f4f7ff" stroke="#2268ff" stroke-width="2"/>
+  <text x="436" y="92" fill="#1c1c1c" font-size="16" font-weight="500" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">/plan_kinematic_path</text>
+  <text x="436" y="112" fill="#5c5c5c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">pipeline_id = ompl</text>
+
+  <rect x="436" y="128" width="252" height="64" rx="6" fill="#e4edff" stroke="#2268ff" stroke-width="2"/>
+  <text x="562" y="154" text-anchor="middle" fill="#1c1c1c" font-size="15" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">关节约束</text>
+  <text x="562" y="176" text-anchor="middle" fill="#5c5c5c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">每个关节 ±0.05 rad</text>
+
+  <line x1="562" y1="192" x2="562" y2="214" stroke="#1c1c1c" stroke-width="2"/>
+  <polygon points="556,214 568,214 562,222" fill="#1c1c1c"/>
+
+  <rect x="436" y="226" width="252" height="56" rx="6" fill="#ffffff" stroke="#2268ff" stroke-width="2"/>
+  <text x="562" y="259" text-anchor="middle" fill="#1c1c1c" font-size="15" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">OMPL：采样、连接、查碰撞</text>
+
+  <line x1="562" y1="282" x2="562" y2="304" stroke="#1c1c1c" stroke-width="2"/>
+  <polygon points="556,304 568,304 562,312" fill="#1c1c1c"/>
+
+  <rect x="436" y="316" width="252" height="64" rx="6" fill="#ffffff" stroke="#2268ff" stroke-width="2"/>
+  <text x="562" y="342" text-anchor="middle" fill="#1c1c1c" font-size="15" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">关节空间几何路径</text>
+  <text x="562" y="364" text-anchor="middle" fill="#5c5c5c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">可继续简化、插值</text>
+
+  <line x1="562" y1="380" x2="562" y2="402" stroke="#1c1c1c" stroke-width="2"/>
+  <polygon points="556,402 568,402 562,410" fill="#1c1c1c"/>
+
+  <rect x="436" y="414" width="252" height="48" rx="6" fill="#ffffff" stroke="#1c1c1c" stroke-width="2"/>
+  <text x="562" y="444" text-anchor="middle" fill="#1c1c1c" font-size="15" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">MoveIt：TOTG，再复查航点</text>
+  <text x="16" y="509" fill="#5c5c5c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">客户端直线检查通过时跳过右侧服务，由脚本直接生成带时间的轨迹。</text>
+</svg>

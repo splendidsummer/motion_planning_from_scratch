@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" role="img" aria-label="同一个夹爪位姿，三颗种子三种结果">
+  <rect width="720" height="420" fill="#fcfcfc"/>
+  <text x="8" y="24" fill="#1c1c1c" font-size="18" font-weight="500" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">同一个位姿，三颗种子</text>
+  <text x="8" y="46" fill="#5c5c5c" font-size="14" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">夹爪上的圆圈是同一个笛卡尔目标。示意图，连杆长度没有按真实手臂缩放。</text>
+
+  <rect x="16" y="68" width="224" height="276" rx="8" fill="#ffffff" stroke="#1c1c1c" stroke-width="2"/>
+  <rect x="248" y="68" width="224" height="276" rx="8" fill="#ffffff" stroke="#1c1c1c" stroke-width="2"/>
+  <rect x="480" y="68" width="224" height="276" rx="8" fill="#ffffff" stroke="#1c1c1c" stroke-width="2"/>
+
+  <rect x="32" y="292" width="192" height="18" fill="#e6e6e8" stroke="#1c1c1c" stroke-width="1.5"/>
+  <rect x="264" y="292" width="192" height="18" fill="#e6e6e8" stroke="#1c1c1c" stroke-width="1.5"/>
+  <rect x="496" y="292" width="192" height="18" fill="#e6e6e8" stroke="#1c1c1c" stroke-width="1.5"/>
+
+  <line x1="72" y1="290" x2="128" y2="176" stroke="#2268ff" stroke-width="4" stroke-linecap="round"/>
+  <line x1="128" y1="176" x2="188" y2="132" stroke="#2268ff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="72" cy="290" r="6" fill="#e4edff" stroke="#2268ff" stroke-width="2"/>
+  <circle cx="128" cy="176" r="6" fill="#e4edff" stroke="#2268ff" stroke-width="2"/>
+  <text x="108" y="168" text-anchor="end" fill="#1c1c1c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">肘在身前</text>
+
+  <line x1="304" y1="290" x2="272" y2="188" stroke="#ec77bf" stroke-width="4" stroke-linecap="round"/>
+  <line x1="272" y1="188" x2="420" y2="132" stroke="#ec77bf" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="304" cy="290" r="6" fill="#fde7f4" stroke="#ec77bf" stroke-width="2"/>
+  <circle cx="272" cy="188" r="6" fill="#fde7f4" stroke="#ec77bf" stroke-width="2"/>
+  <text x="286" y="210" fill="#1c1c1c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">肘在基座后方</text>
+
+  <line x1="536" y1="290" x2="608" y2="304" stroke="#1c1c1c" stroke-width="4" stroke-linecap="round"/>
+  <line x1="608" y1="304" x2="652" y2="132" stroke="#1c1c1c" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="536" cy="290" r="6" fill="#fcfcfc" stroke="#1c1c1c" stroke-width="2"/>
+  <circle cx="608" cy="304" r="6" fill="#fcfcfc" stroke="#1c1c1c" stroke-width="2"/>
+  <text x="548" y="250" fill="#1c1c1c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">连杆进桌面</text>
+
+  <g fill="none" stroke="#1c1c1c" stroke-width="2">
+    <circle cx="188" cy="132" r="8"/>
+    <line x1="180" y1="132" x2="196" y2="132"/>
+    <line x1="188" y1="124" x2="188" y2="140"/>
+    <circle cx="420" cy="132" r="8"/>
+    <line x1="412" y1="132" x2="428" y2="132"/>
+    <line x1="420" y1="124" x2="420" y2="140"/>
+    <circle cx="652" cy="132" r="8"/>
+    <line x1="644" y1="132" x2="660" y2="132"/>
+    <line x1="652" y1="124" x2="652" y2="140"/>
+  </g>
+  <text x="188" y="116" text-anchor="middle" fill="#5c5c5c" font-size="12" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">目标</text>
+  <text x="420" y="116" text-anchor="middle" fill="#5c5c5c" font-size="12" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">目标</text>
+  <text x="652" y="116" text-anchor="middle" fill="#5c5c5c" font-size="12" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">目标</text>
+
+  <text x="128" y="372" text-anchor="middle" fill="#1c1c1c" font-size="15" font-weight="500" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">留下</text>
+  <text x="360" y="372" text-anchor="middle" fill="#1c1c1c" font-size="15" font-weight="500" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">丢掉：肘朝向不对</text>
+  <text x="592" y="372" text-anchor="middle" fill="#1c1c1c" font-size="15" font-weight="500" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">丢掉：构型碰撞</text>
+  <text x="128" y="396" text-anchor="middle" fill="#5c5c5c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">再按离种子的距离排序</text>
+  <text x="360" y="396" text-anchor="middle" fill="#5c5c5c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">/compute_fk</text>
+  <text x="592" y="396" text-anchor="middle" fill="#5c5c5c" font-size="13" font-family="Noto Sans CJK SC, Noto Sans, sans-serif">/check_state_validity</text>
+</svg>

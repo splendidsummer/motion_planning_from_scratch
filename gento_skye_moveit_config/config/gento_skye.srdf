@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot name="Gento Skye urdf">
+  <virtual_joint name="world_joint" type="fixed" parent_frame="world" child_link="base_link"/>
+  <group name="right_arm">
+    <chain base_link="waist_Link_3" tip_link="TCP_Link_R"/>
+  </group>
+  <group name="left_arm">
+    <chain base_link="waist_Link_3" tip_link="TCP_Link_L"/>
+  </group>
+  <group name="both_arms">
+    <group name="left_arm"/>
+    <group name="right_arm"/>
+  </group>
+  <group name="right_gripper">
+    <joint name="Arm_R10_Joint"/>
+    <joint name="Arm_R11_Joint"/>
+  </group>
+  <group name="left_gripper">
+    <joint name="Arm_L10_Joint"/>
+    <joint name="Arm_L11_Joint"/>
+  </group>
+  <group name="waist">
+    <joint name="waist_jiont_1_prismatic"/>
+    <joint name="waist_joint_2"/>
+    <joint name="waist_joint_3"/>
+  </group>
+  <group name="head">
+    <joint name="head_joint_1"/>
+    <joint name="head_joint_2"/>
+  </group>
+  <end_effector name="right_gripper" parent_link="Link8_R" group="right_gripper"/>
+  <end_effector name="left_gripper" parent_link="Link8_L" group="left_gripper"/>
+  <disable_collisions link1="Arm_L10_Link" link2="Arm_L9_Link" reason="Adjacent"/>
+  <disable_collisions link1="Arm_L10_Link" link2="Link8_L" reason="Adjacent"/>
+  <disable_collisions link1="Arm_L10_Link" link2="TCP_Link_L" reason="Adjacent"/>
+  <disable_collisions link1="Arm_L11_Link" link2="Arm_L9_Link" reason="Adjacent"/>
+  <disable_collisions link1="Arm_L11_Link" link2="Link8_L" reason="Adjacent"/>
+  <disable_collisions link1="Arm_L11_Link" link2="TCP_Link_L" reason="Adjacent"/>
+  <disable_collisions link1="Arm_L9_Link" link2="Link7_L" reason="Adjacent"/>
+  <disable_collisions link1="Arm_L9_Link" link2="Link8_L" reason="Adjacent"/>
+  <disable_collisions link1="Arm_L9_Link" link2="TCP_Link_L" reason="Adjacent"/>
+  <disable_collisions link1="Arm_R10_Link" link2="Arm_R9_Link" reason="Adjacent"/>
+  <disable_collisions link1="Arm_R10_Link" link2="Link8_R" reason="Adjacent"/>
+  <disable_collisions link1="Arm_R10_Link" link2="TCP_Link_R" reason="Adjacent"/>
+  <disable_collisions link1="Arm_R11_Link" link2="Arm_R9_Link" reason="Adjacent"/>
+  <disable_collisions link1="Arm_R11_Link" link2="Link8_R" reason="Adjacent"/>
+  <disable_collisions link1="Arm_R11_Link" link2="TCP_Link_R" reason="Adjacent"/>
+  <disable_collisions link1="Arm_R9_Link" link2="Link7_R" reason="Adjacent"/>
+  <disable_collisions link1="Arm_R9_Link" link2="Link8_R" reason="Adjacent"/>
+  <disable_collisions link1="Arm_R9_Link" link2="TCP_Link_R" reason="Adjacent"/>
+  <disable_collisions link1="C1_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="C2_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="C3_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="C4_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="C5_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="C6_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="C7_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="C8_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="IMU_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="Link1_L" link2="Link2_L" reason="Adjacent"/>
+  <disable_collisions link1="Link1_L" link2="Link3_L" reason="Adjacent"/>
+  <disable_collisions link1="Link1_L" link2="Link4_L" reason="Adjacent"/>
+  <disable_collisions link1="Link1_L" link2="waist_Link_1_prismatic" reason="Adjacent"/>
+  <disable_collisions link1="Link1_L" link2="waist_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="Link1_L" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="Link1_R" link2="Link2_R" reason="Adjacent"/>
+  <disable_collisions link1="Link1_R" link2="Link3_R" reason="Adjacent"/>
+  <disable_collisions link1="Link1_R" link2="Link4_R" reason="Adjacent"/>
+  <disable_collisions link1="Link1_R" link2="waist_Link_1_prismatic" reason="Adjacent"/>
+  <disable_collisions link1="Link1_R" link2="waist_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="Link1_R" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="Link2_L" link2="Link3_L" reason="Adjacent"/>
+  <disable_collisions link1="Link2_L" link2="Link4_L" reason="Adjacent"/>
+  <disable_collisions link1="Link2_L" link2="Link5_L" reason="Adjacent"/>
+  <disable_collisions link1="Link2_L" link2="waist_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="Link2_L" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="Link2_R" link2="Link3_R" reason="Adjacent"/>
+  <disable_collisions link1="Link2_R" link2="Link4_R" reason="Adjacent"/>
+  <disable_collisions link1="Link2_R" link2="Link5_R" reason="Adjacent"/>
+  <disable_collisions link1="Link2_R" link2="waist_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="Link2_R" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="Link3_L" link2="Link4_L" reason="Adjacent"/>
+  <disable_collisions link1="Link3_L" link2="Link5_L" reason="Adjacent"/>
+  <disable_collisions link1="Link3_L" link2="Link6_L" reason="Adjacent"/>
+  <disable_collisions link1="Link3_L" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="Link3_R" link2="Link4_R" reason="Adjacent"/>
+  <disable_collisions link1="Link3_R" link2="Link5_R" reason="Adjacent"/>
+  <disable_collisions link1="Link3_R" link2="Link6_R" reason="Adjacent"/>
+  <disable_collisions link1="Link3_R" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="Link4_L" link2="Link5_L" reason="Adjacent"/>
+  <disable_collisions link1="Link4_L" link2="Link6_L" reason="Adjacent"/>
+  <disable_collisions link1="Link4_L" link2="Link7_L" reason="Adjacent"/>
+  <disable_collisions link1="Link4_R" link2="Link5_R" reason="Adjacent"/>
+  <disable_collisions link1="Link4_R" link2="Link6_R" reason="Adjacent"/>
+  <disable_collisions link1="Link4_R" link2="Link7_R" reason="Adjacent"/>
+  <disable_collisions link1="Link5_L" link2="Link6_L" reason="Adjacent"/>
+  <disable_collisions link1="Link5_L" link2="Link7_L" reason="Adjacent"/>
+  <disable_collisions link1="Link5_L" link2="TCP_Link_L" reason="Adjacent"/>
+  <disable_collisions link1="Link5_R" link2="Link6_R" reason="Adjacent"/>
+  <disable_collisions link1="Link5_R" link2="Link7_R" reason="Adjacent"/>
+  <disable_collisions link1="Link5_R" link2="TCP_Link_R" reason="Adjacent"/>
+  <disable_collisions link1="Link6_L" link2="Link7_L" reason="Adjacent"/>
+  <disable_collisions link1="Link6_L" link2="Link8_L" reason="Adjacent"/>
+  <disable_collisions link1="Link6_L" link2="TCP_Link_L" reason="Adjacent"/>
+  <disable_collisions link1="Link6_R" link2="Link7_R" reason="Adjacent"/>
+  <disable_collisions link1="Link6_R" link2="Link8_R" reason="Adjacent"/>
+  <disable_collisions link1="Link6_R" link2="TCP_Link_R" reason="Adjacent"/>
+  <disable_collisions link1="Link7_L" link2="Link8_L" reason="Adjacent"/>
+  <disable_collisions link1="Link7_L" link2="Link_Left_wrist" reason="Adjacent"/>
+  <disable_collisions link1="Link7_L" link2="TCP_Link_L" reason="Adjacent"/>
+  <disable_collisions link1="Link7_R" link2="Link8_R" reason="Adjacent"/>
+  <disable_collisions link1="Link7_R" link2="Link_Right_wrist" reason="Adjacent"/>
+  <disable_collisions link1="Link7_R" link2="TCP_Link_R" reason="Adjacent"/>
+  <disable_collisions link1="Link8_L" link2="Link_Left_wrist" reason="Adjacent"/>
+  <disable_collisions link1="Link8_L" link2="TCP_Link_L" reason="Adjacent"/>
+  <disable_collisions link1="Link8_R" link2="Link_Right_wrist" reason="Adjacent"/>
+  <disable_collisions link1="Link8_R" link2="TCP_Link_R" reason="Adjacent"/>
+  <disable_collisions link1="Link_Left_wrist" link2="TCP_Link_L" reason="Adjacent"/>
+  <disable_collisions link1="Link_Right_wrist" link2="TCP_Link_R" reason="Adjacent"/>
+  <disable_collisions link1="XJ_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="YHL_Link" link2="YH_Link" reason="Adjacent"/>
+  <disable_collisions link1="YHL_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="YH_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="YLD_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="YQL_Link" link2="YQ_Link" reason="Adjacent"/>
+  <disable_collisions link1="YQL_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="YQ_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="ZHL_Link" link2="ZH_Link" reason="Adjacent"/>
+  <disable_collisions link1="ZHL_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="ZH_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="ZLD_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="ZQL_Link" link2="ZQ_Link" reason="Adjacent"/>
+  <disable_collisions link1="ZQL_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="ZQ_Link" link2="base_link" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="waist_Link_1_prismatic" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="waist_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="head depth camera_Link" link2="head_Link_1" reason="Adjacent"/>
+  <disable_collisions link1="head depth camera_Link" link2="head_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="head depth camera_Link" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="head_Link_1" link2="head_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="head_Link_1" link2="left eye camera_Link" reason="Adjacent"/>
+  <disable_collisions link1="head_Link_1" link2="right eye camera_Link" reason="Adjacent"/>
+  <disable_collisions link1="head_Link_1" link2="waist_Link_1_prismatic" reason="Adjacent"/>
+  <disable_collisions link1="head_Link_1" link2="waist_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="head_Link_1" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="head_Link_2" link2="left eye camera_Link" reason="Adjacent"/>
+  <disable_collisions link1="head_Link_2" link2="right eye camera_Link" reason="Adjacent"/>
+  <disable_collisions link1="head_Link_2" link2="waist_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="head_Link_2" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="left eye camera_Link" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="right eye camera_Link" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="waist depth camera_Link" link2="waist_Link_1_prismatic" reason="Adjacent"/>
+  <disable_collisions link1="waist depth camera_Link" link2="waist_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="waist depth camera_Link" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="waist_Link_1_prismatic" link2="waist_Link_2" reason="Adjacent"/>
+  <disable_collisions link1="waist_Link_1_prismatic" link2="waist_Link_3" reason="Adjacent"/>
+  <disable_collisions link1="waist_Link_2" link2="waist_Link_3" reason="Adjacent"/>
+</robot>
