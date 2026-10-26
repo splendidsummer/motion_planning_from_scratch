@@ -997,6 +997,11 @@ def main():
     parser = argparse.ArgumentParser(description="Add a table scene and plan around the balls.")
     parser.add_argument("--planner", choices=PLANNERS, default="RRTConnect")
     parser.add_argument("--time", type=float, default=8.0, help="seconds the planner may run")
+    parser.add_argument(
+        "--scene-only",
+        action="store_true",
+        help="add the table scene and return the arms home, without planning",
+    )
     args = parser.parse_args()
 
     rclpy.init()
@@ -1006,18 +1011,32 @@ def main():
     ik_client = node.create_client(GetPositionIK, "/compute_ik")
     fk_client = node.create_client(GetPositionFK, "/compute_fk")
     plan_client = node.create_client(GetMotionPlan, "/plan_kinematic_path")
-    clients = (scene_client, validity_client, ik_client, fk_client, plan_client)
-    for client in clients:
-        if not client.wait_for_service(timeout_sec=10.0):
-            raise SystemExit("move_group is not running. Launch demo.launch.py first.")
+    clients = (
+        ("/apply_planning_scene", scene_client),
+        ("/check_state_validity", validity_client),
+        ("/compute_ik", ik_client),
+        ("/compute_fk", fk_client),
+        ("/plan_kinematic_path", plan_client),
+    )
+    for service_name, client in clients:
+        if not client.wait_for_service(timeout_sec=30.0):
+            raise SystemExit(
+                f"{service_name} is not available. Launch demo.launch.py first."
+            )
 
     played = False
+    hold_start = False
     try:
         require_rviz(node)
         apply_scene(node, scene_client)
         reset_to_home(node)
         if not start_is_valid(node, validity_client, {name: GRIPPER_CLOSED for name in GRIPPER_JOINTS}):
             raise SystemExit("the robot already touches the new objects")
+        if args.scene_only:
+            hold_start = True
+            print("ready=scene_and_home")
+            print("planning has not started")
+            return
 
         home = {name: 0.0 for name in arm_joint_names()}
         chosen = choose_arm(node, ik_client, fk_client, validity_client, home)
@@ -1088,7 +1107,7 @@ def main():
         play_on_model(node, approach, scene_client, carry_after, fk_client, arm)
         played = True
     finally:
-        if not played:
+        if not played and not hold_start:
             signal_joint_state_publisher(signal.SIGCONT)
         if rclpy.ok():
             node.destroy_node()

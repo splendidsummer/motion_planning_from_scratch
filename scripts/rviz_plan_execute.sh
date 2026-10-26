@@ -6,8 +6,7 @@
 #
 # 用法：
 #   ./scripts/rviz_plan_execute.sh
-#   ./scripts/rviz_plan_execute.sh --planner RRT --time 8
-#   ./scripts/rviz_plan_execute.sh --planner RRTstar --time 8
+#   ./scripts/rviz_plan_execute.sh --plan --planner RRTConnect --time 8
 #
 # 手动做同样的事时，先 source ROS，再开两个终端。
 # 请用 /usr/bin/python3：conda 环境激活后，PATH 上排在前面的是 Python 3.13，
@@ -16,7 +15,7 @@
 #   /usr/bin/python3 docs/scene_gento_skye.py --planner RRT --time 8
 #
 # 停止本脚本启动的演示：
-#   pkill -INT -f 'ros2 launch gento_skye_moveit_config'
+#   ./scripts/rviz_plan_execute.sh --stop
 
 set -eo pipefail
 
@@ -25,14 +24,19 @@ PLANNER="RRT"
 TIME="8"
 STARTED_LAUNCH=0
 LAUNCH_PID=""
+STOP=0
+PLAN=0
 
 usage() {
   cat <<'EOF'
-用法: rviz_plan_execute.sh [--planner 名称] [--time 秒数]
+用法: rviz_plan_execute.sh
+      rviz_plan_execute.sh --plan [--planner 名称] [--time 秒数]
+      rviz_plan_execute.sh --stop
 
-若 MoveIt 和 RViz（demo.launch.py）尚未运行，则先启动它们，
-然后运行 docs/scene_gento_skye.py。该脚本为 both_arms 规划绕过
-桌子、方块和球的轨迹，把轨迹发布给 RViz，并在模型上回放关节。
+不带 --plan 时只打开 RViz，放入桌子、方块和球，并把双臂收回零位。
+规划到这里停住。再执行带 --plan 的命令才会规划并在模型上回放。
+--stop 会先恢复被暂停的 joint_state_publisher，再结束 launch、
+move_group、rviz2，以及可能留下的状态发布器。
 
 默认规划器是 RRT。其他名称：RRTConnect、RRTstar、PRM、PRMstar、
 EST、SBL、KPIECE、BKPIECE、LBKPIECE、TRRT、BiTRRT、AnytimePathShortening。
@@ -49,6 +53,14 @@ while [[ $# -gt 0 ]]; do
       TIME="${2:?--time 需要秒数}"
       shift 2
       ;;
+    --plan)
+      PLAN=1
+      shift
+      ;;
+    --stop)
+      STOP=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -61,7 +73,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "${DISPLAY:-}" ]]; then
+if [[ "${STOP}" -eq 0 && -z "${DISPLAY:-}" ]]; then
   echo "未设置 DISPLAY。RViz 需要图形会话。" >&2
   exit 1
 fi
@@ -76,8 +88,14 @@ set -u
 cd "${ROOT}"
 
 move_group_up() {
-  # 进程先起来，服务要晚几秒。规划必须等服务出现。
-  ros2 service list 2>/dev/null | grep -q '/plan_kinematic_path'
+  # 进程先起来，服务要晚几秒。规划脚本用到的五个服务都要在。
+  # ros2 daemon 会记住已经退出的节点，所以这里不用守护进程缓存。
+  local listed
+  listed="$(ros2 service list --no-daemon --spin-time 1 2>/dev/null || true)"
+  local name
+  for name in /plan_kinematic_path /apply_planning_scene /check_state_validity /compute_ik /compute_fk; do
+    grep -qx "${name}" <<<"${listed}" || return 1
+  done
 }
 
 rviz_up() {
@@ -95,8 +113,15 @@ stop_demo() {
   pkill -TERM -f 'ros2 launch gento_skye_moveit_config' 2>/dev/null || true
   pkill -TERM -f '/moveit_ros_move_group/move_group' 2>/dev/null || true
   pkill -TERM -f '/opt/ros/humble/lib/rviz2/rviz2' 2>/dev/null || true
+  # launch 被杀掉后，这两个发布器常常变成孤儿。再启动一份就会出现同名节点，
+  # 新的 /plan_kinematic_path 可能十几秒都发现不了。
+  pkill -TERM -f '/tf2_ros/static_transform_publisher 0 0 0 0 0 0 world base_link' 2>/dev/null || true
+  pkill -TERM -f '/robot_state_publisher/robot_state_publisher --ros-args --params-file /tmp/launch_params_' 2>/dev/null || true
   sleep 1
   pkill -KILL -f '/joint_state_publisher/joint_state_publisher .*gento_skye' 2>/dev/null || true
+  pkill -KILL -f '/tf2_ros/static_transform_publisher 0 0 0 0 0 0 world base_link' 2>/dev/null || true
+  pkill -KILL -f '/robot_state_publisher/robot_state_publisher --ros-args --params-file /tmp/launch_params_' 2>/dev/null || true
+  ros2 daemon stop >/dev/null 2>&1 || true
 }
 
 start_demo() {
@@ -130,6 +155,8 @@ start_demo() {
 }
 
 place_rviz() {
+  # rviz2 进程先出现，窗口标题要等界面加载完才变成 “… - RViz”。
+  # 摆放失败不该挡住后面的抓取规划。
   /usr/bin/python3 - <<'PY'
 import sys
 import time
@@ -138,19 +165,28 @@ gi.require_version("Wnck", "3.0")
 from gi.repository import GLib, Wnck
 
 screen = Wnck.Screen.get_default()
-screen.force_update()
 anchor = None
 target = None
-for window in screen.get_windows():
-    name = window.get_name() or ""
-    klass = (window.get_class_group_name() or "").lower()
-    if "RViz" in name and target is None:
-        target = window
-    if klass == "cursor":
-        anchor = window
+deadline = time.time() + 30.0
+while time.time() < deadline:
+    screen.force_update()
+    while GLib.main_context_default().iteration(False):
+        pass
+    anchor = None
+    target = None
+    for window in screen.get_windows():
+        name = window.get_name() or ""
+        klass = (window.get_class_group_name() or "").lower()
+        if target is None and (klass == "rviz2" or "rviz" in name.lower()):
+            target = window
+        if klass == "cursor":
+            anchor = window
+    if target is not None:
+        break
+    time.sleep(0.5)
 if target is None:
-    print("错误: 没有 RViz 窗口。rviz2 没在运行。", file=sys.stderr)
-    raise SystemExit(1)
+    print("警告: 30 秒内没找到 RViz 窗口，跳过摆放，继续规划。", file=sys.stderr)
+    raise SystemExit(0)
 target.unmaximize()
 for _ in range(40):
     while GLib.main_context_default().iteration(False):
@@ -174,18 +210,37 @@ print("已把 RViz 窗口放到 Cursor 所在的屏幕。")
 PY
 }
 
-if move_group_up && rviz_up; then
+publisher_duplicates() {
+  # pgrep -f 会匹配到自己，所以用 ps，并去掉 grep 那一行。
+  local n
+  n="$(ps -eo args | grep -F '/robot_state_publisher/robot_state_publisher --ros-args --params-file /tmp/launch_params_' | grep -v grep | wc -l)"
+  [[ "${n}" -gt 1 ]]
+}
+
+if [[ "${STOP}" -eq 1 ]]; then
+  stop_demo
+  echo "演示进程已停止。"
+  exit 0
+fi
+
+services_up=0
+window_up=0
+dups=0
+move_group_up && services_up=1 || true
+rviz_up && window_up=1 || true
+publisher_duplicates && dups=1 || true
+if [[ "${services_up}" -eq 1 && "${window_up}" -eq 1 && "${dups}" -eq 0 ]]; then
   echo "move_group 和 rviz2 进程都在。"
 else
-  if ! rviz_up; then
-    echo "警告: RViz 没有在运行。正在重新启动 MoveIt 和 RViz。" >&2
+  if [[ "${dups}" -eq 1 || "${services_up}" -eq 1 || "${window_up}" -eq 1 ]]; then
+    echo "警告: MoveIt 或 RViz 不完整，或留下了重复的状态发布器。正在重新启动。" >&2
+  else
+    echo "正在启动 MoveIt 和 RViz。"
   fi
-  if move_group_up; then
-    stop_demo
-  fi
+  stop_demo
   start_demo
-  if ! rviz_up; then
-    echo "错误: RViz 启动后仍然没有 rviz2 进程。请查看 ${TMPDIR:-/tmp}/gento_skye_demo_launch.log" >&2
+  if ! rviz_up || ! move_group_up; then
+    echo "错误: MoveIt 或 RViz 启动后仍不可用。请查看 ${TMPDIR:-/tmp}/gento_skye_demo_launch.log" >&2
     exit 1
   fi
 fi
@@ -198,6 +253,13 @@ if ! "${ROS_PYTHON}" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] 
 fi
 
 place_rviz
+if [[ "${PLAN}" -eq 0 ]]; then
+  echo "正在摆好桌子、方块和零位。规划先不开始。"
+  "${ROS_PYTHON}" docs/scene_gento_skye.py --scene-only
+  echo "RViz 停在规划开始之前。"
+  echo "再规划和回放: ./scripts/rviz_plan_execute.sh --plan --planner ${PLANNER} --time ${TIME}"
+  exit 0
+fi
 echo "正在规划，随后在 RViz 中回放轨迹"
 echo "${ROS_PYTHON} docs/scene_gento_skye.py --planner ${PLANNER} --time ${TIME}"
 "${ROS_PYTHON}" docs/scene_gento_skye.py --planner "${PLANNER}" --time "${TIME}"
@@ -209,5 +271,5 @@ fi
 
 if [[ "${STARTED_LAUNCH}" -eq 1 ]]; then
   echo "RViz 仍开着（pid ${LAUNCH_PID}）。"
-  echo "停止命令: pkill -INT -f 'ros2 launch gento_skye_moveit_config'"
+  echo "停止命令: ./scripts/rviz_plan_execute.sh --stop"
 fi

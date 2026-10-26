@@ -2,9 +2,11 @@
 
 模型来自同目录的 `Gento Skye urdf(gripper)/Gento Skye urdf/urdf/Gento Skye urdf.urdf`。MoveIt 配置在 `gento_skye_moveit_config/`。环境是 Ubuntu 22.04 上的 ROS 2 Humble。
 
-新开的终端已经在 `~/.bashrc` 里加载了 Humble 和 `~/.local/opt/ros-humble-user`。一条命令同时打开关节状态发布、`move_group` 和 RViz：
+每开一个终端，先加载 Humble，再加载用户 overlay。overlay 里有 `gento_skye_moveit_config`。然后一条命令同时打开关节状态发布、`move_group` 和 RViz：
 
 ```bash
+source /opt/ros/humble/setup.bash
+source "$HOME/.local/opt/ros-humble-user/local_setup.bash"
 ros2 launch gento_skye_moveit_config demo.launch.py
 ```
 
@@ -17,20 +19,7 @@ ros2 launch gento_skye_moveit_config demo.launch.py
 | `move_group` | MoveIt 规划。规划管线是 OMPL，每次规划再选具体算法 |
 | `rviz2` | 读 `gento_skye_moveit_config/launch/moveit.rviz` |
 
-窗口标题是 `moveit.rviz - RViz`。不要再开第二份，两份会抢同一个节点名。
-
-已经开着、还没加载 ROS 的终端先执行：
-
-```bash
-source /opt/ros/humble/setup.bash
-source "$HOME/.local/opt/ros-humble-user/local_setup.bash"
-```
-
-停掉当前这份：
-
-```bash
-pkill -INT -f 'ros2 launch gento_skye_moveit_config'
-```
+窗口标题是 `moveit.rviz - RViz`。不要再开第二份，两份会抢同一个节点名。停掉整组进程的命令在文末。
 
 ## 在 RViz 里规划
 
@@ -56,9 +45,11 @@ pkill -INT -f 'ros2 launch gento_skye_moveit_config'
 
 手臂规划的代码是 `plan_gento_skye.py`。它向已经启动的 `move_group` 发一次规划请求，把结果打在终端上，并把轨迹发到 RViz 的 `/display_planned_path`。二维教学脚本 `planners_2d.py` 不控制这台机器人。
 
-先保持上面的 `demo.launch.py` 开着，再开一个终端换算法：
+先保持上面的 `demo.launch.py` 开着。再开一个终端，同样先加载 ROS，再换算法：
 
 ```bash
+source /opt/ros/humble/setup.bash
+source "$HOME/.local/opt/ros-humble-user/local_setup.bash"
 cd ~/Projects/motion_planning_from_scratch
 ./plan_gento_skye.py --group both_arms --planner RRTConnect
 ./plan_gento_skye.py --group right_arm --planner RRTstar --time 5
@@ -149,3 +140,58 @@ GOALS = {
 SolidWorks 导出的 `Joint1_L` 上下限都是 0，左肩转不了。加载时用了同目录 `Pro-m6-696` 里这个关节的范围 `±3.1067`，和右肩一致。原始 URDF 没有改。
 
 底座、外壳和相机网格只用于显示，没有放进碰撞体。手腕附近几节连杆在零位时网格叠在一起，相邻三节的碰撞检查被关掉了，否则一上来就被判成碰撞，规划无法开始。
+
+## 跑桌面抓取脚本
+
+先打开 RViz，放入桌子、方块和球，并把双臂收回零位。脚本停在规划开始之前，窗口留着。
+
+```bash
+source /opt/ros/humble/setup.bash
+source "$HOME/.local/opt/ros-humble-user/local_setup.bash"
+cd ~/Projects/motion_planning_from_scratch
+./scripts/rviz_plan_execute.sh
+```
+
+终端出现 `ready=scene_and_home` 和 `planning has not started` 就可以动手。要规划和回放时再执行；这条可以重复，RViz 不用重开：
+
+```bash
+./scripts/rviz_plan_execute.sh --plan --planner RRTConnect --time 8
+```
+
+`--planner` 默认是 `RRT`，`--time` 默认 8 秒。成功时终端会打印 `grasp_sequence` 和 `played_on_model=true`。脚本内部用 `/usr/bin/python3`，因为 conda `(base)` 的 `python3` 是 3.13，加载不了 Humble 的 `rclpy`。
+
+## 停掉演示进程
+
+在仓库目录里执行：
+
+```bash
+./scripts/rviz_plan_execute.sh --stop
+```
+
+回放时脚本会暂停 `joint_state_publisher`，进程状态是 `T`。它在收到 `CONT` 之前会忽略 `INT` 和 `TERM`。只杀 `demo.launch.py` 时，`robot_state_publisher` 和 `static_transform_publisher` 还会留下；下次再启动就会出现两个同名节点，规划服务可能发现不了。`--stop` 按下面的顺序结束这一组进程：
+
+```bash
+pkill -CONT -f '/joint_state_publisher/joint_state_publisher' || true
+sleep 0.3
+pkill -TERM -f '/joint_state_publisher/joint_state_publisher .*gento_skye' || true
+pkill -INT -f 'ros2 launch gento_skye_moveit_config' || true
+sleep 2
+pkill -TERM -f 'ros2 launch gento_skye_moveit_config' || true
+pkill -TERM -f '/moveit_ros_move_group/move_group' || true
+pkill -TERM -f '/opt/ros/humble/lib/rviz2/rviz2' || true
+pkill -TERM -f '/tf2_ros/static_transform_publisher 0 0 0 0 0 0 world base_link' || true
+pkill -TERM -f '/robot_state_publisher/robot_state_publisher --ros-args --params-file /tmp/launch_params_' || true
+sleep 1
+pkill -KILL -f '/joint_state_publisher/joint_state_publisher .*gento_skye' || true
+pkill -KILL -f '/tf2_ros/static_transform_publisher 0 0 0 0 0 0 world base_link' || true
+pkill -KILL -f '/robot_state_publisher/robot_state_publisher --ros-args --params-file /tmp/launch_params_' || true
+ros2 daemon stop || true
+```
+
+确认没有残留：
+
+```bash
+ps -eo pid,stat,args | grep -E 'gento_skye_moveit_config|move_group|joint_state_publisher|robot_state_publisher|static_transform_publisher|rviz2' | grep -v grep || echo none
+```
+
+`echo none` 表示这组进程已经没有了。进程号每次启动都会变，不要用上一次记下来的 PID。
