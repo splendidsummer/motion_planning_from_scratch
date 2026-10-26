@@ -100,20 +100,20 @@ ARM_JOINTS = {
     "left_arm": [f"Joint{i}_L" for i in range(1, 8)],
 }
 TIP = {"right_arm": "TCP_Link_R", "left_arm": "TCP_Link_L"}
-# Prismatic finger joints. 0 is closed, 0.04 m is fully open.
+# Prismatic finger joints: 0.0 m is wide open (jaws 0.11 m apart),
+# 0.012 m holds the 0.06 m cube, and 0.04 m is fully closed.
 # The mimic joints are listed too, so the displayed fingers both move.
 GRIPPER_JOINTS = ("Arm_R10_Joint", "Arm_R11_Joint", "Arm_L10_Joint", "Arm_L11_Joint")
 ARM_GRIPPERS = {
     "right_arm": ("Arm_R10_Joint", "Arm_R11_Joint"),
     "left_arm": ("Arm_L10_Joint", "Arm_L11_Joint"),
 }
-GRIPPER_OPEN = 0.04
-GRIPPER_CLOSED = 0.0
-# Jaw centerlines are 0.11 m apart at 0 and meet near 0.04 m. The 0.06 m cube
-# sits between the faces at about 0.012 m. 0 leaves the jaws clear of the cube.
 PINCH_IN_TCP = (0.0, 0.0, 0.169)
 FINGER_SPREAD = 0.0
 FINGER_HOLD = 0.012
+GRIPPER_OPEN = FINGER_SPREAD
+GRIPPER_CLOSED = FINGER_HOLD
+GRIPPER_FULLY_CLOSED = 0.04
 
 
 def rotation_to_quat(rotation):
@@ -573,6 +573,11 @@ def interpolated_motion(node, validity_client, start, goal, gripper, group="both
     for index, sample in enumerate(samples):
         point = JointTrajectoryPoint()
         point.positions = [sample[name] for name in names]
+        if 0 < index < steps:
+            point.velocities = [(goal[name] - start[name]) / duration for name in names]
+        else:
+            point.velocities = [0.0] * len(names)
+        point.accelerations = [0.0] * len(names)
         stamp_at(point, duration * index / steps)
         trajectory.points.append(point)
     print(f"group={group}")
@@ -594,10 +599,14 @@ def endpoint_joints(response):
     }
 
 
-def plan_between(node, plan_client, validity_client, goal, planner, allowed_time, start, gripper, group):
-    direct = interpolated_motion(node, validity_client, start, goal, gripper, group)
-    if direct is not None:
-        return direct
+def plan_between(
+    node, plan_client, validity_client, goal, planner, allowed_time, start, gripper, group,
+    allow_interpolation=False,
+):
+    if allow_interpolation:
+        direct = interpolated_motion(node, validity_client, start, goal, gripper, group)
+        if direct is not None:
+            return direct
     return plan_group(
         node, plan_client, group, goal, planner, allowed_time,
         start_joints=start, gripper=gripper,
@@ -624,23 +633,38 @@ def append_gripper_close(response):
     rebuilt = []
     for point in trajectory.points:
         values = [0.0] * len(names)
+        velocities = [0.0] * len(names)
+        accelerations = [0.0] * len(names)
         for index, name in enumerate(trajectory.joint_names):
-            values[names.index(name)] = point.positions[index]
+            target_idx = names.index(name)
+            values[target_idx] = point.positions[index]
+            if index < len(point.velocities):
+                velocities[target_idx] = point.velocities[index]
+            if index < len(point.accelerations):
+                accelerations[target_idx] = point.accelerations[index]
         for index in gripper_index.values():
             values[index] = GRIPPER_OPEN
+            velocities[index] = 0.0
+            accelerations[index] = 0.0
         rebuilt_point = JointTrajectoryPoint()
         rebuilt_point.positions = values
+        rebuilt_point.velocities = velocities
+        rebuilt_point.accelerations = accelerations
         rebuilt_point.time_from_start = point.time_from_start
         rebuilt.append(rebuilt_point)
     start_time = seconds(rebuilt[-1].time_from_start)
     close_duration = 1.0
     steps = 8
+    close_rate = (GRIPPER_CLOSED - GRIPPER_OPEN) / close_duration
     for step in range(1, steps + 1):
         closing = GRIPPER_OPEN + (GRIPPER_CLOSED - GRIPPER_OPEN) * step / steps
         rebuilt_point = JointTrajectoryPoint()
         rebuilt_point.positions = list(rebuilt[-1].positions)
+        rebuilt_point.velocities = [0.0] * len(names)
+        rebuilt_point.accelerations = [0.0] * len(names)
         for index in gripper_index.values():
             rebuilt_point.positions[index] = closing
+            rebuilt_point.velocities[index] = 0.0 if step == steps else close_rate
         stamp_at(rebuilt_point, start_time + close_duration * step / steps)
         rebuilt.append(rebuilt_point)
     trajectory.joint_names = names
@@ -706,13 +730,13 @@ def reset_to_home(node):
     time.sleep(0.3)
     baseline = current_joint_state(node)
     positions = dict(zip(baseline.name, baseline.position))
-    pause_joint_state_publisher()
-    for name in list(ARM_JOINTS["right_arm"]) + list(ARM_JOINTS["left_arm"]):
-        positions[name] = 0.0
-    for name in GRIPPER_JOINTS:
-        positions[name] = GRIPPER_CLOSED
+    pause_joint_state_publFINGER_SPREAD
     publisher = node.create_publisher(JointState, "/joint_states", qos_profile_sensor_data)
     deadline = time.time() + 0.4
+    while time.time() < deadline:
+        publish_positions(node, publisher, positions)
+        time.sleep(0.05)
+    print("reset=arms_out grippers=sprea
     while time.time() < deadline:
         publish_positions(node, publisher, positions)
         time.sleep(0.05)
@@ -774,16 +798,33 @@ def play_on_model(node, response, scene_client=None, carry_after=None, fk_client
 FULL_NAMES = ARM_JOINTS["left_arm"] + ARM_JOINTS["right_arm"] + list(GRIPPER_JOINTS)
 
 
-def point_at(source_names, source_values, gripper, when, gripper_joints=None):
+def point_at(
+    source_names, source_values, gripper, when, gripper_joints=None,
+    source_velocities=None, source_accelerations=None,
+):
     values = [0.0] * len(FULL_NAMES)
+    velocities = [0.0] * len(FULL_NAMES)
+    accelerations = [0.0] * len(FULL_NAMES)
     index = {name: i for i, name in enumerate(FULL_NAMES)}
     for name, value in zip(source_names, source_values):
         if name in index:
             values[index[name]] = value
+    if source_velocities:
+        for name, value in zip(source_names, source_velocities):
+            if name in index:
+                velocities[index[name]] = value
+    if source_accelerations:
+        for name, value in zip(source_names, source_accelerations):
+            if name in index:
+                accelerations[index[name]] = value
     for name in (GRIPPER_JOINTS if gripper_joints is None else gripper_joints):
         values[index[name]] = gripper
+        velocities[index[name]] = 0.0
+        accelerations[index[name]] = 0.0
     point = JointTrajectoryPoint()
     point.positions = values
+    point.velocities = velocities
+    point.accelerations = accelerations
     stamp_at(point, when)
     return point
 
@@ -796,6 +837,8 @@ def take_segment(trajectory, gripper, time_offset, gripper_joints=None):
             gripper,
             time_offset + seconds(point.time_from_start),
             gripper_joints,
+            point.velocities,
+            point.accelerations,
         )
         for point in trajectory.points
     ]
@@ -803,12 +846,17 @@ def take_segment(trajectory, gripper, time_offset, gripper_joints=None):
 
 def ramp_grippers(last, start, end, time_offset, joints, duration=0.8, steps=6):
     points = []
+    rate = (end - start) / duration if duration > 0.0 else 0.0
     for step in range(1, steps + 1):
         opening = start + (end - start) * step / steps
         point = JointTrajectoryPoint()
         point.positions = list(last.positions)
+        point.velocities = [0.0] * len(FULL_NAMES)
+        point.accelerations = [0.0] * len(FULL_NAMES)
         for name in joints:
-            point.positions[FULL_NAMES.index(name)] = opening
+            idx = FULL_NAMES.index(name)
+            point.positions[idx] = opening
+            point.velocities[idx] = 0.0 if step == steps else rate
         stamp_at(point, time_offset + duration * step / steps)
         points.append(point)
     return points
@@ -819,7 +867,7 @@ def install_trajectory(response, points):
     trajectory.joint_names = list(FULL_NAMES)
     trajectory.points = points
     home = {name: 0.0 for name in ARM_JOINTS["right_arm"] + ARM_JOINTS["left_arm"]}
-    home.update({name: GRIPPER_CLOSED for name in GRIPPER_JOINTS})
+    home.update({name: FINGER_SPREAD for name in GRIPPER_JOINTS})
     write_joints(response.motion_plan_response.trajectory_start.joint_state, home)
 
 
@@ -927,13 +975,16 @@ def tcp_above(pinch):
     return (pinch[0], pinch[1], pinch[2] + PINCH_IN_TCP[2])
 
 
-def solve_side(node, ik_client, fk_client, validity_client, arm, xyz, quaternion, seed, gripper):
+def solve_side(
+    node, ik_client, fk_client, validity_client, arm, xyz, quaternion, seed, gripper,
+    stage="target",
+):
     found = solve_ik(
         node, ik_client, arm, fk_client, seed=seed, xyz_list=(xyz,), gripper=gripper,
         preferred=quaternion, lock_orientation=True, limit=1,
     )
     if not found:
-        print(f"  {arm} no_ik xyz={[round(value, 3) for value in xyz]}")
+        print(f"  {arm} stage={stage} no_ik xyz={[round(value, 3) for value in xyz]}")
         return None
     for joints, _orientation in found:
         full = {name: 0.0 for name in arm_joint_names()}
@@ -941,6 +992,7 @@ def solve_side(node, ik_client, fk_client, validity_client, arm, xyz, quaternion
         full.update(joints)
         if goal_is_valid(node, validity_client, full, gripper):
             return joints
+        print(f"  {arm} stage={stage} goal_collision xyz={[round(value, 3) for value in xyz]}")
     return None
 
 
@@ -955,25 +1007,38 @@ def choose_arm(node, ik_client, fk_client, validity_client, home):
     best = None
     for arm in ("right_arm", "left_arm"):
         arm_best = None
+        rejected_counts = {"pregrasp": 0, "grasp": 0, "grasp_hold": 0, "lift": 0}
         for yaw in (0.0, math.pi / 2.0, -math.pi / 2.0, math.pi / 4.0, -math.pi / 4.0, math.pi):
             quaternion = down_quaternion(yaw)
             pregrasp = solve_side(
                 node, ik_client, fk_client, validity_client, arm,
                 tcp_above(pinches["pregrasp"]), quaternion, home, FINGER_SPREAD,
+                stage="pregrasp",
             )
             if pregrasp is None:
+                rejected_counts["pregrasp"] += 1
                 continue
             grasp = solve_side(
                 node, ik_client, fk_client, validity_client, arm,
                 tcp_above(pinches["grasp"]), quaternion, pregrasp, FINGER_SPREAD,
+                stage="grasp",
             )
             if grasp is None:
+                rejected_counts["grasp"] += 1
+                continue
+            full_grasp = {name: 0.0 for name in arm_joint_names()}
+            full_grasp.update(grasp)
+            if not goal_is_valid(node, validity_client, full_grasp, FINGER_HOLD):
+                print(f"  {arm} stage=grasp_hold goal_collision yaw_deg={math.degrees(yaw):.0f}")
+                rejected_counts["grasp_hold"] += 1
                 continue
             lift = solve_side(
                 node, ik_client, fk_client, validity_client, arm,
-                tcp_above(pinches["lift"]), quaternion, grasp, FINGER_SPREAD,
+                tcp_above(pinches["lift"]), quaternion, grasp, FINGER_HOLD,
+                stage="lift",
             )
             if lift is None:
+                rejected_counts["lift"] += 1
                 continue
             distance = joint_distance(home, grasp, ARM_JOINTS[arm])
             print(f"candidate={arm} yaw_deg={math.degrees(yaw):.0f} grasp_distance={distance:.3f}")
@@ -986,7 +1051,13 @@ def choose_arm(node, ik_client, fk_client, validity_client, home):
                     "lift": lift,
                 }
         if arm_best is None:
-            print(f"candidate={arm} rejected=pregrasp")
+            print(
+                f"candidate={arm} rejected "
+                f"pregrasp_fails={rejected_counts['pregrasp']} "
+                f"grasp_fails={rejected_counts['grasp']} "
+                f"grasp_hold_fails={rejected_counts['grasp_hold']} "
+                f"lift_fails={rejected_counts['lift']}"
+            )
             continue
         if best is None or arm_best["distance"] < best["distance"]:
             best = arm_best
@@ -997,6 +1068,11 @@ def main():
     parser = argparse.ArgumentParser(description="Add a table scene and plan around the balls.")
     parser.add_argument("--planner", choices=PLANNERS, default="RRTConnect")
     parser.add_argument("--time", type=float, default=8.0, help="seconds the planner may run")
+    parser.add_argument(
+        "--allow-interpolation",
+        action="store_true",
+        help="allow client-side straight-line joint interpolation before calling OMPL",
+    )
     parser.add_argument(
         "--scene-only",
         action="store_true",
@@ -1030,7 +1106,7 @@ def main():
         require_rviz(node)
         apply_scene(node, scene_client)
         reset_to_home(node)
-        if not start_is_valid(node, validity_client, {name: GRIPPER_CLOSED for name in GRIPPER_JOINTS}):
+        if not start_is_valid(node, validity_client, {name: FINGER_SPREAD for name in GRIPPER_JOINTS}):
             raise SystemExit("the robot already touches the new objects")
         if args.scene_only:
             hold_start = True
@@ -1049,7 +1125,7 @@ def main():
         print("stage=pregrasp")
         approach = plan_between(
             node, plan_client, validity_client, chosen["pregrasp"], args.planner, args.time,
-            home, FINGER_SPREAD, arm,
+            home, FINGER_SPREAD, arm, allow_interpolation=args.allow_interpolation,
         )
         if approach is None:
             raise SystemExit("approach to the pre-grasp failed")
@@ -1059,17 +1135,21 @@ def main():
         print("stage=grasp")
         move_in = plan_between(
             node, plan_client, validity_client, chosen["grasp"], args.planner, args.time,
-            arrived_arm, FINGER_SPREAD, arm,
+            arrived_arm, FINGER_SPREAD, arm, allow_interpolation=args.allow_interpolation,
         )
         if move_in is None:
             raise SystemExit("move from the pre-grasp to the grasp failed")
         held = endpoint_joints(move_in)
         held_arm = {name: held.get(name, chosen["grasp"][name]) for name in ARM_JOINTS[arm]}
+        full_held = {name: 0.0 for name in arm_joint_names()}
+        full_held.update(held_arm)
+        if not goal_is_valid(node, validity_client, full_held, FINGER_HOLD):
+            raise SystemExit("closing fingers to FINGER_HOLD at arrived grasp state collides")
 
         print("stage=retreat")
         lift = plan_between(
             node, plan_client, validity_client, chosen["lift"], args.planner, args.time,
-            held_arm, FINGER_SPREAD, arm,
+            held_arm, FINGER_HOLD, arm, allow_interpolation=args.allow_interpolation,
         )
         if lift is None:
             raise SystemExit("lift after the grasp failed")
